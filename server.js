@@ -8,6 +8,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 // Fallback base URL if not provided in environment
 const PYTHON_BASE_URL = process.env.PYTHON_BASE_URL || 'http://66.116.224.207:8000';
+// Streamlit / AI service base URL (port 8501)
+const PYTHON_STREAMLIT_URL = process.env.PYTHON_STREAMLIT_URL || 'http://66.116.224.207:8501';
 
 // Middleware
 const allowedOrigins = [
@@ -95,6 +97,98 @@ app.get('/api/:type/latest', async (req, res) => {
     }
 });
 
+// ─── Feedback routes → Port 8000 ────────────────────────────────────────────
+
+// GET /api/feedback/:token  →  http://66.116.224.207:8000/api/feedback/{token}
+app.get('/api/feedback/:token', async (req, res) => {
+    try {
+        const { token } = req.params;
+        const targetUrl = `${PYTHON_BASE_URL}/api/feedback/${token}`;
+        const response = await axios.get(targetUrl, {
+            timeout: 10000,
+            headers: { 'Accept': 'application/json' }
+        });
+        if (!response.data) {
+            return res.status(502).json({ error: 'Bad Gateway', message: 'Invalid or empty response from Python API' });
+        }
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        console.error('Error proxying GET /api/feedback/:token (8000):', error.message);
+        if (error.response) return res.status(error.response.status).json({ error: 'Backend Error', details: error.response.data });
+        if (error.code === 'ECONNABORTED') return res.status(504).json({ error: 'Gateway Timeout', message: 'Request to Python API timed out' });
+        return res.status(503).json({ error: 'Service Unavailable', message: 'Python API is currently unavailable or unreachable' });
+    }
+});
+
+// POST /api/feedback  →  http://66.116.224.207:8000/api/feedback/
+app.post('/api/feedback', async (req, res) => {
+    try {
+        const targetUrl = `${PYTHON_BASE_URL}/api/feedback/`;
+        const response = await axios.post(targetUrl, req.body, {
+            timeout: 10000,
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
+        });
+        if (!response.data) {
+            return res.status(502).json({ error: 'Bad Gateway', message: 'Invalid or empty response from Python API' });
+        }
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        console.error('Error proxying POST /api/feedback (8000):', error.message);
+        if (error.response) return res.status(error.response.status).json({ error: 'Backend Error', details: error.response.data });
+        if (error.code === 'ECONNABORTED') return res.status(504).json({ error: 'Gateway Timeout', message: 'Request to Python API timed out' });
+        return res.status(503).json({ error: 'Service Unavailable', message: 'Python API is currently unavailable or unreachable' });
+    }
+});
+
+// ─── Feedback-AI routes → Port 8501 (unique endpoint) ────────────────────────
+
+// GET /api/feedback-ai/:token  →  http://66.116.224.207:8501/api/feedback/{token}
+app.get('/api/feedback-ai/:token', async (req, res) => {
+    try {
+        const { token } = req.params;
+        const targetUrl = `${PYTHON_STREAMLIT_URL}/api/feedback/${token}`;
+        const response = await axios.get(targetUrl, {
+            timeout: 10000,
+            headers: { 'Accept': 'application/json' }
+        });
+        if (!response.data) {
+            return res.status(502).json({ error: 'Bad Gateway', message: 'Invalid or empty response from Streamlit API' });
+        }
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        console.error('Error proxying GET /api/feedback-ai/:token (8501):', error.message);
+        if (error.response) return res.status(error.response.status).json({ error: 'Backend Error', details: error.response.data });
+        if (error.code === 'ECONNABORTED') return res.status(504).json({ error: 'Gateway Timeout', message: 'Request to Streamlit API timed out' });
+        return res.status(503).json({ error: 'Service Unavailable', message: 'Streamlit API is currently unavailable or unreachable' });
+    }
+});
+
+// POST /api/feedback-ai  →  http://66.116.224.207:8501/api/feedback
+app.post('/api/feedback-ai', async (req, res) => {
+    try {
+        const targetUrl = `${PYTHON_STREAMLIT_URL}/api/feedback`;
+        const response = await axios.post(targetUrl, req.body, {
+            timeout: 10000,
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
+        });
+        if (!response.data) {
+            return res.status(502).json({ error: 'Bad Gateway', message: 'Invalid or empty response from Streamlit API' });
+        }
+        res.status(response.status).json(response.data);
+    } catch (error) {
+        console.error('Error proxying POST /api/feedback-ai (8501):', error.message);
+        if (error.response) return res.status(error.response.status).json({ error: 'Backend Error', details: error.response.data });
+        if (error.code === 'ECONNABORTED') return res.status(504).json({ error: 'Gateway Timeout', message: 'Request to Streamlit API timed out' });
+        return res.status(503).json({ error: 'Service Unavailable', message: 'Streamlit API is currently unavailable or unreachable' });
+    }
+});
+
 // Fallback for undefined routes
 app.use((req, res) => {
     res.status(404).json({ error: 'Not Found', message: 'Endpoint does not exist' });
@@ -109,6 +203,8 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
     console.log(`===================================================`);
     console.log(`🚀 Node.js Proxy Server running on port ${PORT}`);
-    console.log(`🔗 Proxying /api/:type/latest to: ${PYTHON_BASE_URL}`);
+    console.log(`🔗 Proxying /api/:type/latest  →  ${PYTHON_BASE_URL}`);
+    console.log(`🔗 Proxying /api/feedback       →  ${PYTHON_BASE_URL}`);
+    console.log(`🔗 Proxying /api/feedback-ai    →  ${PYTHON_STREAMLIT_URL}`);
     console.log(`===================================================`);
 });
