@@ -11,8 +11,6 @@ node_modules/
 jspm_packages/
 
 # dotenv environment variables file
-.env
-.env.test
 
 # Optional npm cache directory
 .npm
@@ -25,3 +23,8 @@ jspm_packages/
 
 # Windows files
 Thumbs.db
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
+.gitignore
+config.bat
