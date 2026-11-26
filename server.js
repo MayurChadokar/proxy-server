@@ -15,6 +15,7 @@ const PYTHON_STREAMLIT_URL = process.env.PYTHON_STREAMLIT_URL || 'http://66.116.
 const allowedOrigins = [
     'https://anandjewels.com',
     'https://www.anandjewels.com',
+    'https://anand-jwelers-catlog-website.vercel.app',
     'http://localhost:3000',
     'http://localhost:4200',
     'http://localhost:5173'
